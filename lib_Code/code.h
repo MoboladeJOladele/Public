@@ -1,5 +1,3 @@
-// Automatic Updates are enabled for this header file
-
 #ifndef CODE_H
 #define CODE_H
 
@@ -24,7 +22,7 @@ int arlen_string(char* s, int size) {
     {
         length++;
     }
-
+    // ptint(9)
     return length;
 }
 
