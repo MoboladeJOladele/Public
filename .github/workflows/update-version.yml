@@ -4,27 +4,30 @@ on:
   push:
     paths:
       - 'lib_Code/code.h'
+    branches:
+      - main
 
 jobs:
   update-version:
     runs-on: ubuntu-latest
+
     steps:
-      - name: ⬇️ Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: 🧠 Extract commit hash
-        run: |
-          echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - name: Extract commit hash
+        id: get_hash
+        run: echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: 💾 Update code.version
+      - name: Update code.version
         run: |
-          mkdir -p lib_Code/version
-          echo "$VERSION" > lib_Code/version/code.version
+          echo "$SHORT_HASH" > lib_Code/version/code.version
+          echo "✅ Updated version to $SHORT_HASH"
 
-      - name: 📤 Commit & push version change
+      - name: Push new version
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "code-version-bot"
+          git config user.email "code-version@users.noreply.github.com"
           git add lib_Code/version/code.version
-          git commit -m "🔄 Auto-update code.version to $VERSION"
-          git push
+          git commit -m "🔄 Auto-update code.version to $SHORT_HASH"
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }} HEAD:${{ github.ref }}
