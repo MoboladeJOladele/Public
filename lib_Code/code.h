@@ -22,7 +22,7 @@ int arlen_string(char* s, int size) {
     {
         length++;
     }
-    // ptint(9)
+  
     return length;
 }
 
