@@ -19,17 +19,15 @@ jobs:
         id: get_hash
         run: echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Update code.version file
+      - name: Update code.version
         run: |
           echo "$SHORT_HASH" > lib_Code/code_installer/version/code.version
           echo "✅ Updated version to $SHORT_HASH"
 
-      - name: Commit and push version update
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+      - name: Commit and push
         run: |
           git config user.name "code-version-bot"
           git config user.email "code-version@users.noreply.github.com"
           git add lib_Code/code_installer/version/code.version
-          git commit -m "🔄 Auto-update code.version to $SHORT_HASH" || echo "No changes to commit"
-          git push https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }} HEAD:main
+          git commit -m "🔄 Auto-update code.version to $SHORT_HASH"
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }} HEAD:main
