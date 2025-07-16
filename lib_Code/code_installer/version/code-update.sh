@@ -1,32 +1,32 @@
 #!/bin/bash
 
 # === CONFIG ===
-URL="https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/version/code.version"
+LIB_DIR="/usr/local/include/lib_Code"
+HEADER_PATH="$LIB_DIR/code.h"
+VERSION_PATH="$LIB_DIR/version/code.version"
+REMOTE_VERSION_URL="https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code_installer/version/code.version"
 REMOTE_HEADER_URL="https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code.h"
-TARGET_DIR="/usr/local/include/lib_Code"
-HEADER_FILE="$TARGET_DIR/code.h"
-LOCAL_VERSION_FILE="$TARGET_DIR/code.version"
 
-# === Ensure directory exists
-if [ ! -d "$TARGET_DIR" ]; then
-    exit 0
-fi
+# Ensure paths exist
+mkdir -p "$LIB_DIR/version"
 
-# === Fetch remote version
-remote_version=$(curl -fsSL "$URL")
+# Fetch remote version
+remote_version=$(curl -fsSL "$REMOTE_VERSION_URL" 2>/dev/null)
 if [ -z "$remote_version" ]; then
-    exit 0
+    exit 0  # Silent exit if failed
 fi
 
-# === Fetch local version
-if [ -f "$LOCAL_VERSION_FILE" ]; then
-    local_version=$(cat "$LOCAL_VERSION_FILE")
+# Read local version
+if [ -f "$VERSION_PATH" ]; then
+    local_version=$(cat "$VERSION_PATH")
 else
-    local_version="0.0.0"
+    local_version="none"
 fi
 
-# === Compare and update if necessary
+# Compare versions
 if [ "$remote_version" != "$local_version" ]; then
-    curl -fsSL "$REMOTE_HEADER_URL" -o "$HEADER_FILE"
-    echo "$remote_version" | sudo tee "$LOCAL_VERSION_FILE" > /dev/null
+    curl -fsSL "$REMOTE_HEADER_URL" -o "$HEADER_PATH" && \
+    echo "$remote_version" > "$VERSION_PATH"
 fi
+
+exit 0

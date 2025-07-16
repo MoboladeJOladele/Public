@@ -1,47 +1,43 @@
 @echo off
 setlocal
-title Uninstalling code.h from Windows...
-echo Uninstalling code.h, please wait...
+title Uninstalling code.h...
+
+echo ================================
+echo   Starting code.h Uninstaller...
+echo ================================
 echo.
 
-:: Auto-elevate if not admin
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Requesting admin permissions...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "Start-Process '%~f0' -Verb RunAs"
-    exit /b
-)
+set "SCRIPT_NAME=uninstall-code.ps1"
+set "ORIG_SCRIPT=%~dp0%SCRIPT_NAME%"
+set "TEMP_SCRIPT=%TEMP%\uninstall-code-temp.ps1"
+set "LOG=%TEMP%\code-uninstall-log.txt"
 
-:: === CONFIG ===
-set "PROGDATA=%ProgramData%"
-set "TARGET_DIR=%PROGDATA%\lib_Code"
-set "HEADER_FILE=%TARGET_DIR%\code.h"
-set "INCLUDE_VAR=INCLUDE"
+:: Clean old
+del "%TEMP_SCRIPT%" >nul 2>&1
+del "%LOG%" >nul 2>&1
 
-:: === Delete header file
-if exist "%HEADER_FILE%" (
-    del "%HEADER_FILE%" >nul 2>&1
-    echo Removed code.h
-)
+:: Copy to temp
+copy /Y "%ORIG_SCRIPT%" "%TEMP_SCRIPT%" >nul
 
-:: === Delete directory
-if exist "%TARGET_DIR%" (
-    rmdir /S /Q "%TARGET_DIR%" >nul 2>&1
-    echo Removed %TARGET_DIR%
-)
+:: Run uninstall as admin and log output
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"%TEMP_SCRIPT%\" ^> \"%LOG%\" 2^>^&1' -Verb RunAs -WindowStyle Hidden"
 
-:: === Remove path from INCLUDE
-for /f "tokens=*" %%I in ('powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('%INCLUDE_VAR%', 'Machine')"') do set "INCLUDE=%%I"
+:: Wait a bit to allow script to complete
+timeout /t 2 >nul
 
-echo %INCLUDE% | find /i "%TARGET_DIR%" >nul
-if %errorlevel%==0 (
-    powershell -NoProfile -Command "[Environment]::SetEnvironmentVariable('%INCLUDE_VAR%', ($env:%INCLUDE_VAR% -replace [regex]::Escape('%TARGET_DIR%;?'), ''), 'Machine')"
-    echo Removed %TARGET_DIR% from INCLUDE path
-)
-
-:: === Final message
 echo.
-echo Uninstallation complete.
+echo ================================
+echo    UNINSTALL LOG:
+echo ================================
+if exist "%LOG%" (
+    type "%LOG%"
+) else (
+    echo No uninstall log found.
+)
+echo ================================
+
+echo.
+echo Finished uninstall process.
 echo Press any key to exit...
 pause >nul

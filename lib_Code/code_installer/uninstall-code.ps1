@@ -1,64 +1,69 @@
-Write-Host "Uninstalling code.h from Windows..."
-Write-Host ""
+# uninstall-code.ps1
 
-$TargetDir   = "$env:ProgramData\lib_Code"
-$HeaderPath  = "$TargetDir\code.h"
-$IncludeVar  = "INCLUDE"
-$VersionDir  = Join-Path $TargetDir "version"
+$MetaPath = "$env:ProgramData\lib_Code\code.meta"
 
-# Step 1: Remove from INCLUDE environment variable
-$existing = [Environment]::GetEnvironmentVariable($IncludeVar, [System.EnvironmentVariableTarget]::Machine)
-if ($existing -and $existing -like "*$TargetDir*") {
-    $new = $existing -replace [Regex]::Escape($TargetDir + ';'), ''
-    $new = $new -replace [Regex]::Escape($TargetDir), ''
-    [Environment]::SetEnvironmentVariable($IncludeVar, $new, [System.EnvironmentVariableTarget]::Machine)
-    Write-Host "Cleaned INCLUDE path"
+if (-Not (Test-Path $MetaPath)) {
+    Write-Host "No metadata file found at $MetaPath"
+    exit 1
 }
 
-# Step 2: Remove main file and version directory
-if (Test-Path $HeaderPath) {
-    Remove-Item -Force "$HeaderPath" -ErrorAction SilentlyContinue
-    Write-Host "Deleted code.h"
-}
+# Load metadata
+$meta = Get-Content $MetaPath | ConvertFrom-Json
+Write-Host "Uninstalling code.h..."
+$removed = @()
 
-if (Test-Path $VersionDir) {
-    Remove-Item -Force "$VersionDir" -Recurse -ErrorAction SilentlyContinue
-    Write-Host "Deleted version/ folder"
-}
-
-if (Test-Path $TargetDir) {
-    Remove-Item -Force "$TargetDir" -Recurse -ErrorAction SilentlyContinue
-    Write-Host "Deleted lib_Code directory"
-}
-
-# Step 3: Clean from MinGW paths
-$MinGWPaths = @(
-    "C:\MinGW",
-    "C:\MinGW64",
-    "C:\Program Files\mingw-w64",
-    "C:\mingw64"
-)
-
-foreach ($path in $MinGWPaths) {
-    $includeDir = Join-Path $path "include"
-    $header = "$includeDir\code.h"
-    if (Test-Path $header) {
-        Remove-Item -Force "$header" -ErrorAction SilentlyContinue
-        Write-Host "Removed from MinGW: $includeDir"
+# Remove from ENV variable
+$envVar = $meta.env_var
+if ($envVar -and $meta.lib_dir) {
+    $existing = [Environment]::GetEnvironmentVariable($envVar, [System.EnvironmentVariableTarget]::Machine)
+    if ($existing -like "*$($meta.lib_dir)*") {
+        $updated = ($existing -split ";" | Where-Object { $_ -ne $meta.lib_dir }) -join ";"
+        [Environment]::SetEnvironmentVariable($envVar, $updated, [System.EnvironmentVariableTarget]::Machine)
+        Write-Host "Removed $($meta.lib_dir) from $envVar"
     }
 }
 
-# Step 4: Clean from MSVC include directories
-$VCPaths = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Directory -Filter "include" -ErrorAction SilentlyContinue |
-    Where-Object { $_.FullName -like "*VC\Tools\MSVC\*\include" }
-
-foreach ($vc in $VCPaths) {
-    $header = "$($vc.FullName)\code.h"
-    if (Test-Path $header) {
-        Remove-Item -Force "$header" -ErrorAction SilentlyContinue
-        Write-Host "Removed from MSVC: $($vc.FullName)"
+# Remove injected header copies
+foreach ($path in $meta.injected_paths) {
+    $full = Join-Path $path "code.h"
+    if (Test-Path $full) {
+        Remove-Item $full -Force -ErrorAction SilentlyContinue
+        Write-Host "Removed: $full"
+        $removed += $full
     }
 }
 
-Write-Host ""
-Write-Host "Uninstallation complete."
+# Delete main header and lib_Code dir
+if (Test-Path $meta.header_path) {
+    Remove-Item $meta.header_path -Force -ErrorAction SilentlyContinue
+    Write-Host "Removed: $($meta.header_path)"
+}
+if (Test-Path $meta.lib_dir) {
+    Remove-Item $meta.lib_dir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "Removed directory: $($meta.lib_dir)"
+}
+
+# Cleanup
+if (Test-Path $MetaPath) {
+    Remove-Item $MetaPath -Force
+    Write-Host "Removed metadata file"
+}
+
+# --- 📦 WSL Uninstall Phase ---
+if ($meta.sub_os -eq "WSL") {
+    Write-Host "`n WSL detected. Attempting WSL uninstallation..."
+
+    # Get current script directory and convert it to WSL path
+    $CurrentDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+    $WSLPath = $CurrentDir -replace "^([A-Za-z]):\\", "/mnt/$($matches[1].ToLower())/" -replace "\\", "/"
+
+    $WSLScript = "$WSLPath/uninstall-code.sh"
+    $WSLCommand = "bash $WSLScript"
+
+    Write-Host "Executing: wsl $WSLCommand"
+    wsl.exe $WSLCommand
+
+    Write-Host "WSL uninstallation completed."
+}
+
+Write-Host "`n Full uninstallation complete."

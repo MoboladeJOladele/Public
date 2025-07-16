@@ -1,31 +1,37 @@
 # === CONFIG ===
-$URL = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/version/code.version"
-$RemoteHeaderURL = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code.h"
-$TargetDir = "$env:ProgramData\lib_Code"
-$HeaderPath = "$TargetDir\code.h"
-$LocalVersionFile = "$TargetDir\code.version"
+$libDir     = "$env:ProgramData\lib_Code"
+$headerPath = Join-Path $libDir "code.h"
+$versionDir = Join-Path $libDir "version"
+$versionPath = Join-Path $versionDir "code.version"
 
-# === Ensure directory exists
-if (!(Test-Path $TargetDir)) {
-    exit
+$remoteVersionURL = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code_installer/version/code.version"
+$remoteHeaderURL  = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code.h"
+
+# Ensure folder exists
+if (-not (Test-Path $versionDir)) {
+    New-Item -ItemType Directory -Path $versionDir -Force | Out-Null
 }
 
-# === Fetch remote version
+# Fetch remote version
 try {
-    $remoteVersion = Invoke-RestMethod -Uri $URL -UseBasicParsing
+    $remoteVersion = Invoke-RestMethod -Uri $remoteVersionURL -UseBasicParsing
 } catch {
-    exit
+    exit 0
 }
 
-# === Fetch local version
-if (Test-Path $LocalVersionFile) {
-    $localVersion = Get-Content $LocalVersionFile -Raw
+# Read local version
+$localVersion = if (Test-Path $versionPath) {
+    Get-Content $versionPath -Raw
 } else {
-    $localVersion = "0.0.0"
+    "none"
 }
 
-# === Compare versions
+# Compare and update if needed
 if ($remoteVersion -ne $localVersion) {
-    Invoke-WebRequest -Uri $RemoteHeaderURL -OutFile $HeaderPath -UseBasicParsing
-    Set-Content -Path $LocalVersionFile -Value $remoteVersion
+    try {
+        Invoke-WebRequest -Uri $remoteHeaderURL -OutFile $headerPath -UseBasicParsing
+        Set-Content -Path $versionPath -Value $remoteVersion
+    } catch {
+        exit 0
+    }
 }
