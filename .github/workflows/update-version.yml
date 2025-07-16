@@ -1,0 +1,30 @@
+name: Auto-update code.version
+
+on:
+  push:
+    paths:
+      - 'lib_Code/code.h'
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v3
+
+      - name: 🧠 Extract commit hash
+        run: |
+          echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: 💾 Update code.version
+        run: |
+          mkdir -p lib_Code/version
+          echo "$VERSION" > lib_Code/version/code.version
+
+      - name: 📤 Commit & push version change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib_Code/version/code.version
+          git commit -m "🔄 Auto-update code.version to $VERSION"
+          git push
