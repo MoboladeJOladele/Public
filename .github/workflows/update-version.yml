@@ -21,8 +21,8 @@ jobs:
 
       - name: Update code.version
         run: |
-          echo "$SHORT_HASH" > lib_Code/version/code.version
-          echo "✅ Updated version to $SHORT_HASH"
+          echo "$SHORT_HASH" > lib_Code/code_installer/version/code.version
+          echo "✅ Updated version to $SHORT_HASH" > lib_Code/code_installer/version/code.version
 
       - name: Push new version
         run: |
