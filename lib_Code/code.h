@@ -1,3 +1,5 @@
+// Automatic Updates are now enabled
+
 #ifndef CODE_H
 #define CODE_H
 
