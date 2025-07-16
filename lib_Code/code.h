@@ -1,3 +1,5 @@
+// Automatic Updates are enabled for this header file
+
 #ifndef CODE_H
 #define CODE_H
 
