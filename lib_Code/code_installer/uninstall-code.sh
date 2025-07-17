@@ -21,18 +21,30 @@ wsl_paths=$("$JQ" -r '.wsl_paths[]' "$META_PATH")
 
 echo "Uninstalling code.h..."
 
+# Remove injected header copies
 for p in $injected_paths; do
-    sudo rm -f "$p/code.h" && echo "Removed: $p/code.h"
+    if [ -f "$p/code.h" ]; then
+        sudo rm -f "$p/code.h" && echo "Removed: $p/code.h"
+    fi
 done
 
+# Remove global WSL header
 [ -f "$header_path" ] && sudo rm -f "$header_path" && echo "Removed: $header_path"
-[ -f "/usr/local/include/code.h" ] && sudo rm -f "/usr/local/include/code.h" && echo "Removed: symlink"
+[ -f "/usr/local/include/code.h" ] && sudo rm -f "/usr/local/include/code.h" && echo "Removed: WSL global header"
 
+# Remove lib directory and metadata
 [ -d "$lib_dir" ] && sudo rm -rf "$lib_dir" && echo "Removed: $lib_dir"
 [ -f "$META_PATH" ] && sudo rm -f "$META_PATH" && echo "Removed: $META_PATH"
 
+# Remove any other WSL-specific paths listed
 for p in $wsl_paths; do
     sudo rm -f "$p" && echo "Removed from WSL: $p"
 done
+
+# Remove .bashrc injections
+echo "Cleaning .bashrc..."
+sed -i '/code-update\.sh/d' ~/.bashrc && echo "Removed code-update.sh injection"
+sed -i '/CODE_LIB_PATH/d' ~/.bashrc && echo "Removed CODE_LIB_PATH export"
+sed -i '/Auto-update code\.h/d' ~/.bashrc && echo "Removed auto-update comment"
 
 echo "Uninstallation complete."

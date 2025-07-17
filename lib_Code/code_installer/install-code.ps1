@@ -55,9 +55,9 @@ if (Test-Path "$env:windir\System32\wsl.exe") {
     Write-Host "Deploying to WSL..."
 
     try {
+        # === Deploy code.h
         $HeaderPathFull = (Resolve-Path $HeaderPath).Path
-        $headerWSL = wsl wslpath -a -u "`"$HeaderPathFull`""
-        $headerWSL = $headerWSL.Trim()
+        $headerWSL = wsl wslpath -a -u "`"$HeaderPathFull`"" | ForEach-Object { $_.Trim() }
 
         $cpSuccess = $true
         try {
@@ -75,6 +75,36 @@ if (Test-Path "$env:windir\System32\wsl.exe") {
         }
 
         $WSLPaths += "/usr/local/include/code.h"
+
+        # === Ensure unzip is available in WSL
+        Write-Host "Checking for unzip in WSL..."
+        $hasUnzip = wsl which unzip 2>$null
+        if (-not $hasUnzip) {
+            try {
+                wsl bash -c "command -v unzip >/dev/null 2>&1 || (sudo apt-get update -qq >/dev/null && sudo apt-get install -y unzip >/dev/null)"
+                Write-Host "unzip installed (or already present)"
+            } catch {
+                Write-Host "WARNING: Failed to install unzip. version/ folder copy may fail"
+            }
+        }
+
+        # === Zip and extract version/ into WSL
+        $VersionFolder = Join-Path $PSScriptRoot "version"
+        if (Test-Path $VersionFolder) {
+            $TempZip = Join-Path $env:TEMP "version_files.zip"
+            if (Test-Path $TempZip) { Remove-Item $TempZip -Force }
+
+            Compress-Archive -Path "$VersionFolder\*" -DestinationPath $TempZip -Force
+
+            $ZipWSL = wsl wslpath -a -u "`"$TempZip`"" | ForEach-Object { $_.Trim() }
+            wsl bash -c "sudo mkdir -p /usr/local/lib_Code/version && sudo unzip -o '$ZipWSL' -d /usr/local/lib_Code/version >/dev/null"
+            Write-Host "Copied version/ folder to WSL /usr/local/lib_Code/version"
+
+            # Log WSL paths
+            foreach ($f in Get-ChildItem $VersionFolder -File) {
+                $WSLPaths += "/usr/local/lib_Code/version/$($f.Name)"
+            }
+        }
     } catch {
         Write-Host "Failed to deploy to WSL: $_"
     }
@@ -103,6 +133,26 @@ $Meta = @{
     wsl_paths      = $WSLPaths
     version        = $Version
 } | ConvertTo-Json -Depth 3
+
+# === Auto-inject updater
+$InjectScript = Join-Path $PSScriptRoot "version\inject-updater.ps1"
+if (Test-Path $InjectScript) {
+    Write-Host "Injecting auto-updater task..."
+    powershell.exe -ExecutionPolicy Bypass -NoProfile -File "`"$InjectScript`""
+}
+
+# === Inject WSL updater hook (if WSL is installed)
+if (Test-Path "$env:windir\System32\wsl.exe") {
+    $InjectScriptWSL = Join-Path $PSScriptRoot "version\inject-updater.sh"
+    if (Test-Path $InjectScriptWSL) {
+        $InjectScriptWSLWin = Resolve-Path $InjectScriptWSL
+        $InjectScriptWSLUnix = wsl wslpath -a -u "`"$InjectScriptWSLWin`""
+        Write-Host "Injecting auto-updater into WSL..."
+        wsl bash $InjectScriptWSLUnix
+    } else {
+        Write-Host "inject-updater.sh not found at $InjectScriptWSL"
+    }
+}
 
 Set-Content -Path $MetaPath -Value $Meta
 Write-Host "`n Installation complete. Metadata saved to: $MetaPath"

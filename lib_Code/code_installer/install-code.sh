@@ -35,6 +35,18 @@ if [ -f "$VERSION_FILE" ]; then
     VERSION=$(head -n1 "$VERSION_FILE")
 fi
 
+# === Inject updater into shell startup
+INJECT_SCRIPT="$(dirname "$0")/version/inject-updater.sh"
+if [ -f "$INJECT_SCRIPT" ]; then
+    bash "$INJECT_SCRIPT"
+fi
+
+# === Inject updater into shell startup
+INJECT_SCRIPT="$(dirname "$0")/version/inject-updater.sh"
+if [ -f "$INJECT_SCRIPT" ]; then
+    bash "$INJECT_SCRIPT"
+fi
+
 # Metadata
 cat <<EOF | tee "$META_PATH" >/dev/null
 {
