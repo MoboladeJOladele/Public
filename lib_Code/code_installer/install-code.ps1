@@ -1,36 +1,41 @@
-# === CONFIG ===
-$URL         = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code.h"
-$VersionURL  = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code_installer/version/code.version"
-$HookURL     = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code_installer/version/hook-updater.sh"
-$TargetDir   = "$env:ProgramData\lib_Code"
-$HeaderPath  = Join-Path $TargetDir "code.h"
-$MetaPath    = Join-Path $TargetDir "code.meta"
-$IncludeVar  = "INCLUDE"
+# install-code.ps1 — Installs code.h from lib_Code/ or downloads if needed
 
-"INSTALL STARTED" | Out-File "$env:TEMP\code-install-log.txt" -Append
-Write-Host "Downloading code.h..."
+$DownloadURL = "https://raw.githubusercontent.com/MoboladeJOladele/Public/main/lib_Code/code.h"
+$LocalFolder = Join-Path $PSScriptRoot "lib_Code"
+$HeaderPath = Join-Path $LocalFolder "code.h"
+$VersionPath = Join-Path $LocalFolder "version\code.version"
+$MetaPath = Join-Path $LocalFolder "code.meta"
+$TargetDir = "$env:ProgramData\lib_Code"
+$IncludeVar = "INCLUDE"
 
-# === Prepare directory and download header
-If (!(Test-Path $TargetDir)) {
-    New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
+# --- Ensure lib_Code/ exists and code.h present ---
+if (!(Test-Path $HeaderPath)) {
+    if (!(Test-Path $LocalFolder)) {
+        New-Item -ItemType Directory -Path $LocalFolder | Out-Null
+    }
+    Write-Host "Downloading code.h..."
+    Invoke-WebRequest -Uri $DownloadURL -OutFile $HeaderPath -UseBasicParsing
 }
-Invoke-WebRequest -Uri $URL -OutFile $HeaderPath -UseBasicParsing
 
-# === Add to INCLUDE path
+# Copy lib_Code to ProgramData
+Copy-Item -Path $LocalFolder -Destination $TargetDir -Recurse -Force
+Write-Host "Installed to $TargetDir"
+
+# === Update INCLUDE env var
 $existing = [Environment]::GetEnvironmentVariable($IncludeVar, [System.EnvironmentVariableTarget]::Machine)
 if ($existing -notlike "*$TargetDir*") {
     $new = if ($existing) { "$existing;$TargetDir" } else { "$TargetDir" }
     [Environment]::SetEnvironmentVariable($IncludeVar, $new, [System.EnvironmentVariableTarget]::Machine)
-    Write-Host "Updated INCLUDE path"
+    Write-Host "Updated INCLUDE environment variable"
 }
 
-# === Inject into MinGW and MSVC
-$MinGWPaths = @("C:\MinGW", "C:\MinGW64", "C:\Program Files\mingw-w64", "C:\mingw64")
+# === Inject into known Windows compilers
 $Injected = @()
+$MinGWPaths = @("C:\MinGW", "C:\MinGW64", "C:\Program Files\mingw-w64", "C:\mingw64")
 foreach ($path in $MinGWPaths) {
     $includeDir = Join-Path $path "include"
     if (Test-Path $includeDir) {
-        Copy-Item -Path $HeaderPath -Destination "$includeDir\code.h" -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path $HeaderPath -Destination "$includeDir\code.h" -Force
         $Injected += $includeDir
         Write-Host "Injected into MinGW at $includeDir"
     }
@@ -39,85 +44,66 @@ foreach ($path in $MinGWPaths) {
 $VCPaths = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Directory -Filter "include" -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -like "*VC\Tools\MSVC\*\include" }
 foreach ($vc in $VCPaths) {
-    Copy-Item -Path $HeaderPath -Destination "$($vc.FullName)\code.h" -Force -ErrorAction SilentlyContinue
+    Copy-Item -Path $HeaderPath -Destination "$($vc.FullName)\code.h" -Force
     $Injected += $vc.FullName
     Write-Host "Injected into MSVC at $($vc.FullName)"
 }
 
-# === WSL Detection
-$HasWSL = Test-Path "$env:windir\System32\wsl.exe"
-$SubOS = if ($HasWSL) { "WSL" } else { "None" }
+# === Deploy to WSL
 $WSLPaths = @()
+if (Test-Path "$env:windir\System32\wsl.exe") {
+    Write-Host "Deploying to WSL..."
 
-if ($HasWSL) {
-    $wslHeader      = "/usr/local/include/lib_Code/code.h"
-    $wslMeta        = "/usr/local/include/lib_Code/code.meta"
-    $wslVersionDir  = "/usr/local/include/lib_Code/version"
-    $hookScriptPath = "$wslVersionDir/hook-updater.sh"
+    try {
+        $HeaderPathFull = (Resolve-Path $HeaderPath).Path
+        $headerWSL = wsl wslpath -a -u "`"$HeaderPathFull`""
+        $headerWSL = $headerWSL.Trim()
 
-    wsl sudo mkdir -p "/usr/local/include/lib_Code/version"
-    wsl sudo curl -fsSL "$URL" -o "$wslHeader"
-    wsl sudo ln -sf "$wslHeader" "/usr/local/include/code.h"
-    wsl sudo curl -fsSL "$HookURL" -o "$hookScriptPath"
-    wsl sudo chmod +x "$hookScriptPath"
+        $cpSuccess = $true
+        try {
+            wsl bash -c "sudo cp '$headerWSL' '/usr/local/include/code.h'"
+            Write-Host "WSL cp: success"
+        } catch {
+            $cpSuccess = $false
+        }
 
-    # Generate metadata
-    $wslCompiler = (wsl gcc --version | Out-String).Split("`n")[0]
-    $wslMetaContent = @"
-{
-  "os_type": "Linux",
-  "sub_os": "WSL",
-  "compiler": "$wslCompiler",
-  "env_var": null,
-  "lib_dir": "/usr/local/include/lib_Code",
-  "header_path": "$wslHeader",
-  "injected_paths": ["/usr/local/include"],
-  "version": "unknown"
-}
-"@
-    $tempMeta = "$env:TEMP\wsl-code.meta"
-    $wslMetaContent | Out-File -Encoding utf8 $tempMeta
-    wsl sudo cp "$(wsl wslpath -a -u "$tempMeta")" "$wslMeta"
-    Write-Host "WSL metadata written to: $wslMeta"
+        if (-not $cpSuccess) {
+            try {
+                Get-Content -Raw -Encoding Byte "$HeaderPathFull" | wsl bash -c "cat | sudo tee /usr/local/include/code.h >/dev/null"
+                Write-Host "Fallback (cat) success: code.h deployed to WSL"
+            } catch { }
+        }
 
-    # Add NOPASSWD rule for hook-updater.sh
-    $sudoersLine = 'ALL ALL=(ALL) NOPASSWD: /usr/local/include/lib_Code/version/hook-updater.sh'
-    $escaped = $sudoersLine -replace '"', '\"'
-    wsl bash -c "echo '$escaped' | sudo tee /etc/sudoers.d/code_h >/dev/null"
-    Write-Host "Sudoers exception added for hook-updater.sh"
-
-    $WSLPaths += $wslHeader
+        $WSLPaths += "/usr/local/include/code.h"
+    } catch {
+        Write-Host "Failed to deploy to WSL: $_"
+    }
 }
 
-# === Fetch Version
-try {
-    $Version = Invoke-RestMethod -Uri $VersionURL -UseBasicParsing
-} catch {
-    $Version = "Unknown"
-}
-
-# === Detect Compiler
+# === Compiler Info
+$Compiler = "Unknown"
 if (Get-Command gcc -ErrorAction SilentlyContinue) {
-    $Compiler = (& gcc --version)[0]
+    $Compiler = (& gcc --version | Select-Object -First 1)
 } elseif (Get-Command clang -ErrorAction SilentlyContinue) {
-    $Compiler = (& clang --version)[0]
-} else {
-    $Compiler = "Unknown"
+    $Compiler = (& clang --version | Select-Object -First 1)
 }
 
-# === Write Windows Metadata
+# === Version
+$Version = if (Test-Path $VersionPath) { Get-Content $VersionPath -First 1 } else { "Unknown" }
+
+# === Save Metadata
 $Meta = @{
     os_type        = "Windows"
-    sub_os         = $SubOS
+    sub_os         = "WSL"
     compiler       = $Compiler
     env_var        = $IncludeVar
     lib_dir        = $TargetDir
-    header_path    = $HeaderPath
+    header_path    = Join-Path $TargetDir "code.h"
     injected_paths = $Injected
     wsl_paths      = $WSLPaths
     version        = $Version
 } | ConvertTo-Json -Depth 3
-Set-Content -Path $MetaPath -Value $Meta
 
-Write-Host "Installation complete. Metadata saved to: $MetaPath"
-"INSTALL COMPLETED" | Out-File "$env:TEMP\code-install-log.txt" -Append
+Set-Content -Path $MetaPath -Value $Meta
+Write-Host "`n Installation complete. Metadata saved to: $MetaPath"
+Read-Host "Press Enter to exit"

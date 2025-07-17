@@ -1,53 +1,38 @@
 #!/bin/bash
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-JQ="$DIR/jq"
-META_PATH="/usr/local/include/lib_Code/code.meta"
+set -e
+META_PATH="./lib_Code/code.meta"
+JQ="./lib_Code/code_installer/jq"
 
-echo "Uninstalling code.h..."
-
-# --- Check if metadata exists ---
 if [ ! -f "$META_PATH" ]; then
-    echo "Metadata file not found: $META_PATH"
+    echo "Metadata not found at: $META_PATH"
     exit 1
 fi
 
-# --- Parse metadata using local jq ---
-os_type=$("$JQ" -r '.os_type' "$META_PATH")
-sub_os=$("$JQ" -r '.sub_os' "$META_PATH")
-lib_dir=$("$JQ" -r '.lib_dir' "$META_PATH")
-header_path=$("$JQ" -r '.header_path' "$META_PATH")
-version=$("$JQ" -r '.version' "$META_PATH")
-injected_paths=$("$JQ" -r '.injected_paths[]' "$META_PATH")
+if [ ! -x "$JQ" ]; then
+    echo "jq not found at: $JQ"
+    exit 1
+fi
 
-# --- Remove injected headers ---
-for path in $injected_paths; do
-    if [ -f "$path/code.h" ]; then
-        sudo rm -f "$path/code.h"
-        echo "Removed $path/code.h"
-    fi
+header_path=$("$JQ" -r '.header_path' "$META_PATH")
+injected_paths=$("$JQ" -r '.injected_paths[]' "$META_PATH")
+lib_dir=$("$JQ" -r '.lib_dir' "$META_PATH")
+wsl_paths=$("$JQ" -r '.wsl_paths[]' "$META_PATH")
+
+echo "Uninstalling code.h..."
+
+for p in $injected_paths; do
+    sudo rm -f "$p/code.h" && echo "Removed: $p/code.h"
 done
 
-# --- Remove main header ---
-if [ -f "$header_path" ]; then
-    sudo rm -f "$header_path"
-    echo "Removed $header_path"
-fi
+[ -f "$header_path" ] && sudo rm -f "$header_path" && echo "Removed: $header_path"
+[ -f "/usr/local/include/code.h" ] && sudo rm -f "/usr/local/include/code.h" && echo "Removed: symlink"
 
-# --- Remove symlink ---
-if [ -L "/usr/local/include/code.h" ]; then
-    sudo rm -f "/usr/local/include/code.h"
-    echo "Removed symlink: /usr/local/include/code.h"
-fi
+[ -d "$lib_dir" ] && sudo rm -rf "$lib_dir" && echo "Removed: $lib_dir"
+[ -f "$META_PATH" ] && sudo rm -f "$META_PATH" && echo "Removed: $META_PATH"
 
-# --- Remove lib directory ---
-if [ -d "$lib_dir" ]; then
-    sudo rm -rf "$lib_dir"
-    echo "Removed directory: $lib_dir"
-fi
-
-# --- Remove metadata ---
-sudo rm -f "$META_PATH"
-echo "Removed metadata: $META_PATH"
+for p in $wsl_paths; do
+    sudo rm -f "$p" && echo "Removed from WSL: $p"
+done
 
 echo "Uninstallation complete."

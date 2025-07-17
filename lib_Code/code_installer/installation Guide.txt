@@ -5,11 +5,11 @@
 📥 To Install on Linux/macOS/WSL:
 ----------------------------------
 1. Open your terminal
-2. Navigate to the folder containing `run-code-installer.sh`
+2. Navigate to the folder containing `install-code.sh`
 3. Run the following commands:
 
-    chmod +x run-code-installer.sh
-    ./run-code-installer.sh
+    chmod +x install-code.sh
+    ./install-code.sh
 
 🧹 To Uninstall:
 ----------------
@@ -64,6 +64,10 @@ You can now include your header in any C file like this:
 And compile with:
 
     make hello
+OR
+    clang -o hello hello.c
+    
+    - THIS IS JUST AN EXAMPLE
 
 Works across:
 ✔️ Windows (MinGW or MSVC)

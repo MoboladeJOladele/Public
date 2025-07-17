@@ -1,29 +1,16 @@
 @echo off
-setlocal
-title Installing code.h globally...
-echo Installing code.h, please wait...
-echo.
+set SCRIPT=install-code.ps1
 
-:: === CONFIG ===
-set "SCRIPT_NAME=install-code.ps1"
-set "ORIG_SCRIPT=%~dp0%SCRIPT_NAME%"
-set "TEMP_SCRIPT=%TEMP%\install-code-temp.ps1"
-set "LOG=%TEMP%\code-install-log.txt"
+echo Running code.h installer...
 
-:: === CLEANUP OLD FILES
-del "%TEMP_SCRIPT%" >nul 2>&1
-del "%LOG%" >nul 2>&1
-
-:: === COPY SCRIPT TO TEMP
-copy /Y "%ORIG_SCRIPT%" "%TEMP_SCRIPT%" >nul
-
-:: === RUN POWERHELL (ADMIN, VISIBLE)
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Start-Process powershell -Verb RunAs -ArgumentList '-NoExit','-NoProfile','-ExecutionPolicy Bypass','-File \"%TEMP_SCRIPT%\"'"
-
-echo.
-echo If the window closes immediately, run this script manually:
-echo powershell -NoProfile -ExecutionPolicy Bypass -File "%TEMP_SCRIPT%"
-echo.
+:: Check if running as admin
+net session >nul 2>&1
+if %errorLevel% NEQ 0 (
+    echo Requesting administrator privileges...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+     "Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"%~dp0%SCRIPT%\"' -Verb RunAs"
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0%SCRIPT%"
+)
 
 pause
