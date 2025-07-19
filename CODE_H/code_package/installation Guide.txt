@@ -1,0 +1,75 @@
+==============================
+📦 INSTALLATION INSTRUCTIONS
+==============================
+
+📥 To Install on Linux/macOS/WSL:
+----------------------------------
+1. Open your terminal
+2. Navigate to the folder containing `install-code.sh`
+3. Run the following commands:
+
+    chmod +x install-code.sh
+    ./install-code.sh
+
+🧹 To Uninstall:
+----------------
+Run:
+
+    chmod +x uninstall-code.sh
+    ./uninstall-code.sh
+
+
+📥 To Install on Windows (via .bat file):
+-----------------------------------------
+1. Right-click `setup.bat` and choose **"Run as administrator"**
+2. A Command Prompt window will open
+3. It will install `code.h` globally and show all progress messages
+
+⚠️ NOTE:
+- This installs `code.h` to: `C:\ProgramData\lib_Code`
+- It also updates the system INCLUDE path for all compilers (MinGW/MSVC)
+- Admin permissions are required
+
+🧹 To Uninstall on Windows:
+----------------------------
+1. Right-click `clean.bat` and choose **"Run as administrator"**
+2. It will:
+    - Remove the `lib_Code` folder
+    - Clean the INCLUDE environment variable
+    - Show all output in Command Prompt
+
+💡 Alternate (PowerShell only):
+-------------------------------
+If you'd rather run manually:
+
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    .\install-code.ps1
+
+To uninstall manually:
+
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    .\uninstall-code.ps1
+
+⚠️ NOTE: These scripts must be run from an **Administrator PowerShell Terminal**.
+
+
+===========================
+📎 AFTER INSTALLING
+===========================
+
+You can now include your header in any C file like this:
+
+    #include <code.h>
+
+And compile with:
+
+    make hello
+OR
+    clang -o hello hello.c
+    
+    - THIS IS JUST AN EXAMPLE
+
+Works across:
+✔️ Windows (MinGW or MSVC)
+✔️ WSL (Ubuntu/Debian)
+✔️ Native Linux/macOS
