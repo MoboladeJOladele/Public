@@ -7,16 +7,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-// All Prototypes stacked together
-char *_case(char *s);
-char *_lower(char *s, int size);
-char *_upper(char *s, int size);
-bool _islowercase(char *s);
-bool _isuppercase(char *s);
-bool look_for_letters(char *s);
-void found_no_letters(char *function);
-void sort_chars_ascending(char *array, int length);
-void sort_strings_ascending(char* array[], int length);
+// All Prototypes stacked alphabetically
+static inline char *_case(const char s[]);
+static inline bool _islowercase(const char s[]);
+static inline bool _isuppercase(const char s[]);
+static inline bool look_for_letters(const char s[]);
+static inline void _lower(char s[]);
+static inline void _upper(char s[]);
+static inline void found_no_letters(const char function[]);
+static inline void sort_chars_ascending(char array[], const int length);
+static inline void sort_strings_ascending(char* array[], const int length);
 
 /*
     ARLEN, Array Length Calculator
@@ -60,7 +60,7 @@ int arlen_string(char* s, int size) {
 */
 #define selector(type, name)  \
     \
-    void name##_descending(type array[], int length) { \
+    static inline void name##_descending(type array[], int length) { \
         name##_ascending(array, length);  \
         \
         /*Create a duplicate array*/ \
@@ -79,7 +79,7 @@ int arlen_string(char* s, int size) {
         } \
     } \
     \
-    void name(type array[], char *format, int size) {  \
+    static inline void name(type array[], char *format, int size) {  \
         int length = arlen(array, size);  \
         \
         if (strcmp(format, "ascending") == 0) \
@@ -96,13 +96,13 @@ int arlen_string(char* s, int size) {
         \
         else  \
         { \
-            printf("sort() says {Unknown Format}\n");  \
+            printf("{++sort() says \"Unknown Format\"++}");  \
             return;  \
         } \
     } 
     
 #define sort_others(type, name)  \
-    void name##_ascending(type array[], int length) { \
+    static inline void name##_ascending(type array[], int length) { \
         if (length <= 1)  \
         { \
             return;  \
@@ -128,7 +128,7 @@ int arlen_string(char* s, int size) {
         name##_ascending(left_half, l_length);  \
         name##_ascending(right_half, r_length); \
         \
-        /*SORT AND MERGE*/ \
+        /*Merge The Sorted Halves*/ \
         int left = 0, right = 0;  \
         bool skip = false;  \
         for (int index = 0; index < length; index++)  \
@@ -154,7 +154,7 @@ int arlen_string(char* s, int size) {
             } \
             \
             /*ELSE*/ \
-            /*if both halves still have elements*/ \
+            /*If both halves still have elements*/ \
             else if (left < l_length && right < r_length)  \
             { \
                 if (left_half[left] < right_half[right])  \
@@ -181,16 +181,16 @@ int arlen_string(char* s, int size) {
         } \
     }
 
-void sort_chars_ascending(char *array, int length)
+static inline void sort_chars_ascending(char array[], const int length)
 {
     if (length <= 1)
     {
         return;
     }
 
-    // Length of each half
-    int l_length = length / 2;
-    int r_length = length - l_length;
+    // Get the length of each half
+    const int l_length = length / 2;
+    const int r_length = length - l_length;
 
     // Create the two halves
     char left_half[l_length], right_half[r_length];
@@ -258,7 +258,7 @@ void sort_chars_ascending(char *array, int length)
                 char char1 = left_half[left];
                 char char2 = right_half[right];
 
-                // Lowercase letters should be first
+                // Lowercase letters should be pushed first
                 if (islower(left_half[left]) && !islower(right_half[right]))
                 {
                     char1 = left_half[left];
@@ -280,16 +280,16 @@ void sort_chars_ascending(char *array, int length)
     }
 }
 
-void sort_strings_ascending(char* array[], int length)
+static inline void sort_strings_ascending(char* array[], const int length)
 {
     if (length <= 1)
     {
         return;
     }
 
-    // Length of each half
-    int l_length = length / 2;
-    int r_length = length - l_length;
+    // Get the length of each half
+    const int l_length = length / 2;
+    const int r_length = length - l_length;
 
     // Create the two halves
     char* left_half[l_length];
@@ -337,21 +337,16 @@ void sort_strings_ascending(char* array[], int length)
         // If both halves still have elements
         else if (left < l_length && right < r_length)
         {
-            char *l_copy = _lower(left_half[left], sizeof(left_half[left]));
-            if (l_copy == NULL)
-            {
-                printf("malloc() says {Failed Memory Allocation}\n");
-                return;
-            }
-
-            char *r_copy = _lower(right_half[right], sizeof(right_half[right]));;
-            if (r_copy == NULL)
-            {
-                printf("malloc() says {Failed Memory Allocation}\n");
-                free(l_copy);
-                return;
-            }
+            char *l_copy = malloc(sizeof(left_half[left]));
+            char *r_copy = malloc(sizeof(right_half[right]));
             
+            strcpy(l_copy, left_half[left]);
+            strcpy(r_copy, right_half[right]);
+
+            // Convert both copies to lower case
+            _lower(l_copy);
+            _lower(r_copy);
+
             if (strcmp(l_copy, r_copy) < 0)
             {
                 array[index] = left_half[left];
@@ -424,71 +419,44 @@ selector(char*, sort_strings)
     Special String Modification Functions
 */
 
-char *_lower(char *s, int size)
+static inline void _lower(char s[])
 {
-    // Counts all characters (including the NULL character)
-    int length = arlen(s, size);
-
-    char *copy = malloc(length);
-    if (copy == NULL)
-    {
-        return NULL;
-    }
-
-    for (int i = 0; i < length; i++)
+    for (int i = 0; s[i] != '\0'; i++)
     {
         if (!isalpha(s[i]))
         {
-            copy[i] = s[i];
+            continue;
         }
-        else if (!islower(s[i]))
+        else if (isupper(s[i]))
         {
-            copy[i] = tolower(s[i]);
-        }
-        else
-        {
-            copy[i] = s[i];
+            s[i] = tolower(s[i]);
         }
     }
-    return copy;
 }
 
-char *_upper(char *s, int size)
+static inline void _upper(char s[])
 {
-    // Counts all characters (including the NULL character)
-    int length = arlen(s, size);
-
-    char *copy = malloc(length);
-    if (copy == NULL)
-    {
-        return NULL;
-    }
-
-    for (int i = 0; i < length; i++)
+    for (int i = 0; s[i] != '\0'; i++)
     {
         if (!isalpha(s[i]))
         {
-            copy[i] = s[i];
+            continue;
         }
-        else if (!isupper(s[i]))
+        else if (islower(s[i]))
         {
-            copy[i] = toupper(s[i]);
-        }
-        else
-        {
-            copy[i] = s[i];
+            s[i] = toupper(s[i]);
         }
     }
-    return copy;
 }
 
-bool _islowercase(char *s)
+static inline bool _islowercase(const char s[])
 {
     bool found_a_letter = look_for_letters(s);
     if (!found_a_letter)
     {
         // No Letters Found
         found_no_letters("_islowercase()");
+        return false;
     }
 
     else
@@ -509,13 +477,14 @@ bool _islowercase(char *s)
     }
 }
 
-bool _isuppercase(char *s)
+static inline bool _isuppercase(const char s[])
 {
     bool found_a_letter = look_for_letters(s);
     if (!found_a_letter)
     {
         // No Letters Found
         found_no_letters("_isuppercase()");
+        return false;
     }
 
     else
@@ -536,14 +505,14 @@ bool _isuppercase(char *s)
     }
 }
 
-char *_case(char *s)
+static inline char *_case(const char s[])
 {
     bool found_a_letter = look_for_letters(s);
     if (!found_a_letter)
     {
         // No Letters Found
         found_no_letters("_case()");
-        return "None";
+        return "";
     }
 
     bool is_lower = _islowercase(s);
@@ -565,7 +534,7 @@ char *_case(char *s)
     }
 }
 
-bool look_for_letters(char *s)
+static inline bool look_for_letters(const char s[])
 {
     for (int i = 0; s[i] != '\0'; i++)
     {
@@ -579,9 +548,9 @@ bool look_for_letters(char *s)
     return false;
 }
 
-void found_no_letters(char *function)
+static inline void found_no_letters(const char function[])
 {
-    printf("%s says {Couldn't find any letters}\n", function);
+    printf("{++%s says \"Couldn't find any letters\"++}", function);
 }
 
 #endif
