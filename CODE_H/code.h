@@ -367,19 +367,28 @@ static inline void sort_strings_ascending(char* array[], const int length)
                 char* s1 = left_half[left];
                 char* s2 = right_half[right];
 
-                // Lowercase words should be pushed first
-                if (_islowercase(left_half[left]) && !_islowercase(right_half[right]))
+                for (int i = 0, n = arlen(s1, sizeof(s1)); i < n; i++)
                 {
-                    s1 = left_half[left];
-                    s2 = right_half[right];
-                }
+                    if (s1[i] == s2[i])
+                    {
+                        continue;
+                    }
 
-                else if (!_islowercase(left_half[left]) && _islowercase(right_half[right]))
-                {
-                    s1 = right_half[right];
-                    s2 = left_half[left];
-                }
+                    else
+                    {
+                        // Lowercase words should be pushed first
+                        if (islower(s1[i]) && !islower(s2[i]))
+                        {
+                            // Change nothing
+                        }
 
+                        else if (!islower(s1[i]) && islower(s2[i]))
+                        {
+                            s1 = right_half[right];
+                            s2 = left_half[left];
+                        }
+                    }
+                }
                 array[index] = s1;
                 array[index + 1] = s2;
                 left++, right++;
