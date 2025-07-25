@@ -22,7 +22,7 @@ static inline void sort_strings_ascending(char* array[], const int length);
     ARLEN, Array Length Calculator
 */
 #define arlen_others(type, name) \
-    int name(type array, int size) { \
+    static inline int name(type array, int size) { \
         return size / sizeof(array[0]); \
     }
 
@@ -34,7 +34,7 @@ arlen_others(double*, arlen_doubles)
 arlen_others(char**, arlen_string_set)
 
 // String (char*) arlen function
-int arlen_string(char* s, int size) {
+static inline int arlen_string(char* s, const int size) {
     int length = 0;
     for (int i = 0; s[i] != '\0'; i++)
     {
@@ -128,7 +128,7 @@ int arlen_string(char* s, int size) {
         name##_ascending(left_half, l_length);  \
         name##_ascending(right_half, r_length); \
         \
-        /*Merge The Sorted Halves*/ \
+        /*SORT AND MERGE*/ \
         int left = 0, right = 0;  \
         bool skip = false;  \
         for (int index = 0; index < length; index++)  \
@@ -154,7 +154,7 @@ int arlen_string(char* s, int size) {
             } \
             \
             /*ELSE*/ \
-            /*If both halves still have elements*/ \
+            /*if both halves still have elements*/ \
             else if (left < l_length && right < r_length)  \
             { \
                 if (left_half[left] < right_half[right])  \
@@ -237,45 +237,47 @@ static inline void sort_chars_ascending(char array[], const int length)
         // If both halves still have elements
         else if (left < l_length && right < r_length)
         {
-            char l_char = tolower(left_half[left]);
-            char r_char = tolower(right_half[right]);
+            char c1 = left_half[left];
+            char c2 = right_half[right];
 
-            if (l_char < r_char)
+            // If the two elements aren't equal
+            if (tolower(c1) != tolower(c2))
             {
-                array[index] = left_half[left];
-                left++;
+                char l_copy = tolower(c1);
+                char r_copy = tolower(c2);
+
+                if (l_copy < r_copy)
+                {
+                    array[index] = c1;
+                    array[index + 1] = c2;
+                }
+
+                else if (l_copy > r_copy)
+                {
+                    array[index] = c2;
+                    array[index + 1] = c1;
+                }
             }
 
-            else if (l_char > r_char)
-            {
-                array[index] = right_half[right];
-                right++;
-            }
-
-            // If the two elements are equal
             else
             {
-                char char1 = left_half[left];
-                char char2 = right_half[right];
-
                 // Lowercase letters should be pushed first
-                if (islower(left_half[left]) && !islower(right_half[right]))
+                if (islower(c1) && !islower(c2))
                 {
-                    char1 = left_half[left];
-                    char2 = right_half[right];
+                    // Change nothing
+                }
+                
+                else if (!islower(c1) && islower(c2))
+                {
+                    c1 = right_half[right];
+                    c2 = left_half[left]; 
                 }
 
-                else if (!islower(left_half[left]) && islower(right_half[right]))
-                {
-                    char1 = right_half[right];
-                    char2 =  left_half[left];
-                }
-
-                array[index] = char1;
-                array[index + 1] = char2;
-                left++, right++;
-                skip = true;
+                array[index] = c1;
+                array[index + 1] = c2;
             }
+            left++, right++;
+            skip = true;
         }
     }
 }
@@ -362,24 +364,24 @@ static inline void sort_strings_ascending(char* array[], const int length)
             // If the two elements are equal
             else
             {
-                char* word1 = left_half[left];
-                char* word2 = right_half[right];
+                char* s1 = left_half[left];
+                char* s2 = right_half[right];
 
-                // Lowercase words should be first
+                // Lowercase words should be pushed first
                 if (_islowercase(left_half[left]) && !_islowercase(right_half[right]))
                 {
-                    word1 = left_half[left];
-                    word2 = right_half[right];
+                    s1 = left_half[left];
+                    s2 = right_half[right];
                 }
 
                 else if (!_islowercase(left_half[left]) && _islowercase(right_half[right]))
                 {
-                    word1 = right_half[right];
-                    word2 = left_half[left];
+                    s1 = right_half[right];
+                    s2 = left_half[left];
                 }
 
-                array[index] = word1;
-                array[index + 1] = word2;
+                array[index] = s1;
+                array[index + 1] = s2;
                 left++, right++;
                 skip = true;
             }
